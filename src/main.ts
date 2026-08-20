@@ -1,10 +1,12 @@
 import './style.css';
 
+import { getPlaybackCursorFraction } from './audio/playbackCursor';
 import { encodeFloat32Wav } from './audio/wav';
-import { DEFAULT_SETTINGS } from './config';
+import { DEFAULT_SETTINGS, SPECTROGRAM_DATA_FLOOR_DB } from './config';
 import { decodeImageFile } from './image/decodeImage';
 import { validateSettings } from './pipeline/generate';
 import { renderSpectrogram, type SpectrogramRenderData } from './render/spectrogram';
+import { bindDualRange } from './ui/dualRange';
 import type {
   DecodedImage,
   GenerateRequest,
@@ -29,15 +31,20 @@ const imagePreview = requireElement<HTMLCanvasElement>('#image-preview');
 const imageMetadata = requireElement<HTMLParagraphElement>('#image-metadata');
 const inputState = requireElement<HTMLSpanElement>('#input-state');
 const settingsForm = requireElement<HTMLFormElement>('#settings-form');
-const durationInput = requireElement<HTMLInputElement>('#duration-input');
+const timeStartInput = requireElement<HTMLInputElement>('#time-start-input');
+const timeEndInput = requireElement<HTMLInputElement>('#time-end-input');
 const minimumFrequencyInput = requireElement<HTMLInputElement>('#min-frequency-input');
 const maximumFrequencyInput = requireElement<HTMLInputElement>('#max-frequency-input');
+const minimumAmplitudeInput = requireElement<HTMLInputElement>('#min-amplitude-input');
+const maximumAmplitudeInput = requireElement<HTMLInputElement>('#max-amplitude-input');
 const calculateButton = requireElement<HTMLButtonElement>('#calculate-button');
 const resultState = requireElement<HTMLSpanElement>('#result-state');
+const resultFrame = requireElement<HTMLDivElement>('#result-frame');
 const resultPlaceholder = requireElement<HTMLParagraphElement>('#result-placeholder');
 const resultMetadata = requireElement<HTMLParagraphElement>('#result-metadata');
 const spectrogramCanvas = requireElement<HTMLCanvasElement>('#spectrogram-canvas');
 const audioPlayer = requireElement<HTMLAudioElement>('#audio-player');
+const playbackCursor = requireElement<HTMLDivElement>('#playback-cursor');
 const downloadWavButton = requireElement<HTMLButtonElement>('#download-wav-button');
 const message = requireElement<HTMLParagraphElement>('#message');
 
@@ -51,8 +58,54 @@ let currentRequestId = 0;
 let isBusy = false;
 let audioUrl: string | null = null;
 let lastWavBlob: Blob | null = null;
+let lastResult: GenerateResult | null = null;
 let lastRenderData: SpectrogramRenderData | null = null;
 let resizeFrame: number | null = null;
+let playbackFrame: number | null = null;
+
+const mappingInputs = [
+  timeStartInput,
+  timeEndInput,
+  minimumFrequencyInput,
+  maximumFrequencyInput,
+  minimumAmplitudeInput,
+  maximumAmplitudeInput,
+];
+
+const timeViewRange = bindDualRange({
+  minimumRange: requireElement<HTMLInputElement>('#time-start-range'),
+  maximumRange: requireElement<HTMLInputElement>('#time-end-range'),
+  selection: requireElement<HTMLElement>('#time-range-selection'),
+}, {
+  domainMinimum: 0,
+  domainMaximum: DEFAULT_SETTINGS.timeEndSeconds,
+  minimumGap: 0.05,
+  onChange: handleViewRangeChange,
+});
+
+const frequencyViewRange = bindDualRange({
+  minimumRange: requireElement<HTMLInputElement>('#min-frequency-range'),
+  maximumRange: requireElement<HTMLInputElement>('#max-frequency-range'),
+  selection: requireElement<HTMLElement>('#frequency-range-selection'),
+}, {
+  domainMinimum: 0,
+  domainMaximum: DEFAULT_SETTINGS.sampleRate / 2,
+  minimumGap: 1,
+  orientation: 'vertical',
+  onChange: handleViewRangeChange,
+});
+
+const amplitudeViewRange = bindDualRange({
+  minimumRange: requireElement<HTMLInputElement>('#min-amplitude-range'),
+  maximumRange: requireElement<HTMLInputElement>('#max-amplitude-range'),
+  selection: requireElement<HTMLElement>('#amplitude-range-selection'),
+}, {
+  domainMinimum: -80,
+  domainMaximum: 0,
+  minimumGap: 1,
+  orientation: 'vertical',
+  onChange: handleViewRangeChange,
+});
 
 function setPill(element: HTMLElement, text: string, kind?: 'busy' | 'success' | 'error'): void {
   element.textContent = text;
@@ -75,20 +128,30 @@ function setMessage(text: string, kind?: 'success' | 'error'): void {
 function setBusy(busy: boolean): void {
   isBusy = busy;
   imageInput.disabled = busy;
-  durationInput.disabled = busy;
-  minimumFrequencyInput.disabled = busy;
-  maximumFrequencyInput.disabled = busy;
+  for (const input of mappingInputs) {
+    input.disabled = busy;
+  }
+  const disableViewRanges = busy || lastResult === null;
+  timeViewRange.setDisabled(disableViewRanges);
+  frequencyViewRange.setDisabled(disableViewRanges);
+  amplitudeViewRange.setDisabled(disableViewRanges);
   calculateButton.disabled = busy || decodedImage === null;
   dropZone.setAttribute('aria-disabled', String(busy));
 }
 
 function clearResult(): void {
+  stopPlaybackAnimation();
+  playbackCursor.hidden = true;
   if (audioUrl !== null) {
     URL.revokeObjectURL(audioUrl);
     audioUrl = null;
   }
   lastWavBlob = null;
+  lastResult = null;
   lastRenderData = null;
+  timeViewRange.setDisabled(true);
+  frequencyViewRange.setDisabled(true);
+  amplitudeViewRange.setDisabled(true);
   audioPlayer.pause();
   audioPlayer.removeAttribute('src');
   audioPlayer.load();
@@ -150,12 +213,116 @@ async function selectFile(file: File): Promise<void> {
 function readSettings(): SpectraDrawSettings {
   const settings: SpectraDrawSettings = {
     ...DEFAULT_SETTINGS,
-    durationSeconds: durationInput.valueAsNumber,
+    timeStartSeconds: timeStartInput.valueAsNumber,
+    timeEndSeconds: timeEndInput.valueAsNumber,
     minFrequencyHz: minimumFrequencyInput.valueAsNumber,
     maxFrequencyHz: maximumFrequencyInput.valueAsNumber,
+    minAmplitudeDb: minimumAmplitudeInput.valueAsNumber,
+    maxAmplitudeDb: maximumAmplitudeInput.valueAsNumber,
   };
   validateSettings(settings);
   return settings;
+}
+
+function renderLatestResult(): void {
+  if (lastResult === null) {
+    return;
+  }
+  const time = timeViewRange.getValues();
+  const frequency = frequencyViewRange.getValues();
+  const amplitude = amplitudeViewRange.getValues();
+  lastRenderData = {
+    valuesDb: lastResult.finalMagnitudeDb,
+    samples: lastResult.samples,
+    sampleRate: lastResult.sampleRate,
+    frameCount: lastResult.frameCount,
+    binCount: lastResult.binCount,
+    times: lastResult.times,
+    frequencies: lastResult.frequencies,
+    signalEndSeconds: lastResult.timeEndSeconds,
+    minimumTimeSeconds: time.minimum,
+    maximumTimeSeconds: time.maximum,
+    minimumFrequencyHz: frequency.minimum,
+    maximumFrequencyHz: frequency.maximum,
+    minimumDb: amplitude.minimum,
+    maximumDb: amplitude.maximum,
+  };
+  renderSpectrogram(spectrogramCanvas, lastRenderData);
+}
+
+function updatePlaybackCursor(timeSeconds = audioPlayer.currentTime): void {
+  if (lastResult === null) {
+    playbackCursor.hidden = true;
+    return;
+  }
+  const time = timeViewRange.getValues();
+  const fraction = getPlaybackCursorFraction(
+    Number.isFinite(timeSeconds) ? timeSeconds : 0,
+    time.minimum,
+    time.maximum,
+  );
+  if (fraction === null) {
+    playbackCursor.hidden = true;
+    return;
+  }
+
+  const frameStyle = getComputedStyle(resultFrame);
+  const plotLeft = Number.parseFloat(frameStyle.getPropertyValue('--plot-left'));
+  const plotRight = Number.parseFloat(frameStyle.getPropertyValue('--plot-right'));
+  if (!Number.isFinite(plotLeft) || !Number.isFinite(plotRight)) {
+    playbackCursor.hidden = true;
+    return;
+  }
+  const plotWidth = Math.max(1, resultFrame.clientWidth - plotLeft - plotRight);
+  const cursorLeft = plotLeft + fraction * plotWidth;
+  resultFrame.style.setProperty('--playback-cursor-left', `${cursorLeft}px`);
+  playbackCursor.hidden = false;
+}
+
+function stopPlaybackAnimation(): void {
+  if (playbackFrame !== null) {
+    cancelAnimationFrame(playbackFrame);
+    playbackFrame = null;
+  }
+}
+
+function startPlaybackAnimation(): void {
+  stopPlaybackAnimation();
+  const tick = (): void => {
+    updatePlaybackCursor();
+    if (!audioPlayer.paused && !audioPlayer.ended) {
+      playbackFrame = requestAnimationFrame(tick);
+    } else {
+      playbackFrame = null;
+    }
+  };
+  tick();
+}
+
+function handleViewRangeChange(): void {
+  if (lastResult === null || isBusy) {
+    return;
+  }
+  renderLatestResult();
+  updatePlaybackCursor();
+  setMessage('View range updated. The generated audio and image mapping are unchanged.', 'success');
+}
+
+function configureViewRanges(result: GenerateResult): void {
+  const minimumFrequency = result.frequencies[0] ?? 0;
+  const maximumFrequency = result.frequencies[result.frequencies.length - 1]
+    ?? result.sampleRate / 2;
+  timeViewRange.setBounds(0, result.timeEndSeconds);
+  frequencyViewRange.setBounds(minimumFrequency, maximumFrequency);
+  amplitudeViewRange.setBounds(
+    SPECTROGRAM_DATA_FLOOR_DB,
+    DEFAULT_SETTINGS.maxAmplitudeDb,
+    DEFAULT_SETTINGS.minAmplitudeDb,
+    DEFAULT_SETTINGS.maxAmplitudeDb,
+  );
+  timeViewRange.setDisabled(false);
+  frequencyViewRange.setDisabled(false);
+  amplitudeViewRange.setDisabled(false);
 }
 
 function stageLabel(stage: WorkerStage, iteration?: number, totalIterations?: number): string {
@@ -178,23 +345,28 @@ function presentResult(result: GenerateResult): void {
   audioPlayer.src = audioUrl;
   downloadWavButton.disabled = false;
 
-  lastRenderData = {
-    valuesDb: result.finalMagnitudeDb,
-    frameCount: result.frameCount,
-    binCount: result.binCount,
-    times: result.times,
-    frequencies: result.frequencies,
-    durationSeconds: result.durationSeconds,
-    minimumDb: DEFAULT_SETTINGS.minDisplayDb,
-  };
+  lastResult = result;
+  configureViewRanges(result);
   resultPlaceholder.hidden = true;
   spectrogramCanvas.hidden = false;
-  renderSpectrogram(spectrogramCanvas, lastRenderData);
-  resultMetadata.textContent = `${result.durationSeconds.toFixed(2)} s · ${result.sampleRate.toLocaleString()} Hz · mono · 32-bit float`;
+  renderLatestResult();
+  updatePlaybackCursor(0);
+  resultMetadata.textContent = `Mapped ${result.timeStartSeconds.toFixed(2)}–${result.timeEndSeconds.toFixed(2)} s · ${result.minFrequencyHz.toLocaleString()}–${result.maxFrequencyHz.toLocaleString()} Hz · ${result.minAmplitudeDb}–${result.maxAmplitudeDb} dBFS · ${result.timeEndSeconds.toFixed(2)} s WAV`;
 }
 
 settingsForm.addEventListener('submit', (event) => {
   event.preventDefault();
+});
+
+for (const input of mappingInputs) {
+  input.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+    }
+  });
+}
+
+calculateButton.addEventListener('click', () => {
   if (decodedImage === null || isBusy) {
     return;
   }
@@ -260,6 +432,22 @@ worker.addEventListener('error', () => {
   setMessage('The signal-processing worker stopped unexpectedly.', 'error');
 });
 
+audioPlayer.addEventListener('play', startPlaybackAnimation);
+audioPlayer.addEventListener('pause', () => {
+  stopPlaybackAnimation();
+  updatePlaybackCursor();
+});
+for (const eventName of ['timeupdate', 'seeking', 'seeked', 'loadedmetadata'] as const) {
+  audioPlayer.addEventListener(eventName, () => {
+    updatePlaybackCursor();
+  });
+}
+audioPlayer.addEventListener('ended', () => {
+  stopPlaybackAnimation();
+  audioPlayer.currentTime = 0;
+  updatePlaybackCursor(0);
+});
+
 imageInput.addEventListener('change', () => {
   const file = imageInput.files?.[0];
   if (file !== undefined) {
@@ -317,11 +505,13 @@ window.addEventListener('resize', () => {
     resizeFrame = null;
     if (lastRenderData !== null) {
       renderSpectrogram(spectrogramCanvas, lastRenderData);
+      updatePlaybackCursor();
     }
   });
 });
 
 window.addEventListener('beforeunload', () => {
+  stopPlaybackAnimation();
   if (audioUrl !== null) {
     URL.revokeObjectURL(audioUrl);
   }

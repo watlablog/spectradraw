@@ -7,10 +7,25 @@ export function createTargetMagnitude(
   source: Matrix2D,
   sampleCount: number,
   stftConfig: StftConfig,
+  timeStartSeconds: number,
+  timeEndSeconds: number,
   minimumFrequencyHz: number,
   maximumFrequencyHz: number,
+  minimumAmplitudeDb: number,
+  maximumAmplitudeDb: number,
 ): TargetMagnitude {
   const layout = createStftLayout(sampleCount, stftConfig);
+  const selectedFrames: number[] = [];
+  for (let frame = 0; frame < layout.frameCount; frame += 1) {
+    const time = layout.times[frame] ?? 0;
+    if (time >= timeStartSeconds && time <= timeEndSeconds) {
+      selectedFrames.push(frame);
+    }
+  }
+  if (selectedFrames.length === 0) {
+    throw new Error('The selected time range contains no STFT frames.');
+  }
+
   const selectedBins: number[] = [];
   for (let bin = 0; bin < layout.binCount; bin += 1) {
     const frequency = layout.frequencies[bin] ?? 0;
@@ -35,7 +50,7 @@ export function createTargetMagnitude(
   const resized = resizeBilinear(
     { rows: source.rows, cols: source.cols, values: verticallyFlipped },
     selectedBins.length,
-    layout.frameCount,
+    selectedFrames.length,
   );
   const values = new Float64Array(layout.binCount * layout.frameCount);
   for (let selectedIndex = 0; selectedIndex < selectedBins.length; selectedIndex += 1) {
@@ -43,13 +58,26 @@ export function createTargetMagnitude(
     if (targetBin === undefined) {
       continue;
     }
-    const sourceOffset = selectedIndex * layout.frameCount;
+    const sourceOffset = selectedIndex * selectedFrames.length;
     const targetOffset = targetBin * layout.frameCount;
-    values.set(resized.values.subarray(sourceOffset, sourceOffset + layout.frameCount), targetOffset);
+    for (let timeIndex = 0; timeIndex < selectedFrames.length; timeIndex += 1) {
+      const targetFrame = selectedFrames[timeIndex];
+      if (targetFrame !== undefined) {
+        values[targetOffset + targetFrame] = resized.values[sourceOffset + timeIndex] ?? 0;
+      }
+    }
   }
 
   if (!(normalizeMagnitude(values) > 0)) {
     throw new Error('This image does not contain any content that can be converted to sound.');
+  }
+  for (let index = 0; index < values.length; index += 1) {
+    const value = values[index] ?? 0;
+    if (value > 0) {
+      const amplitudeDb = minimumAmplitudeDb
+        + value * (maximumAmplitudeDb - minimumAmplitudeDb);
+      values[index] = 10 ** (amplitudeDb / 20);
+    }
   }
 
   return { frameCount: layout.frameCount, binCount: layout.binCount, values };

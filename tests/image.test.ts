@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { DEFAULT_SETTINGS } from '../src/config';
+import { createTargetMagnitude } from '../src/image/createTargetMagnitude';
 import { detectImageFormat } from '../src/image/decodeImage';
 import { gaussianBlur } from '../src/image/kernels';
 import { processImageData } from '../src/image/processImage';
@@ -96,5 +97,50 @@ describe('bilinear matrix resize', () => {
       10.85714340209961,
       12.428571701049805,
     ]);
+  });
+});
+
+describe('target time placement', () => {
+  it('writes image energy only to frames inside the selected start/end range', () => {
+    const target = createTargetMagnitude(
+      { rows: 1, cols: 1, values: new Float64Array([1]) },
+      10,
+      { sampleRate: 100, frameSize: 8, hopSize: 2, fftSize: 8 },
+      0.04,
+      0.08,
+      0,
+      50,
+      -20,
+      0,
+    );
+
+    const activeFrames = new Set([3, 4, 5]);
+    for (let bin = 0; bin < target.binCount; bin += 1) {
+      for (let frame = 0; frame < target.frameCount; frame += 1) {
+        const value = target.values[bin * target.frameCount + frame] ?? 0;
+        if (activeFrames.has(frame)) {
+          expect(value).toBe(1);
+        } else {
+          expect(value).toBe(0);
+        }
+      }
+    }
+  });
+
+  it('maps nonzero image levels into the requested dB range', () => {
+    const target = createTargetMagnitude(
+      { rows: 1, cols: 2, values: new Float64Array([0.25, 1]) },
+      10,
+      { sampleRate: 100, frameSize: 8, hopSize: 2, fftSize: 8 },
+      0.04,
+      0.08,
+      0,
+      50,
+      -20,
+      0,
+    );
+    const nonzero = Array.from(target.values).filter((value) => value > 0);
+    expect(Math.min(...nonzero)).toBeGreaterThanOrEqual(0.1);
+    expect(Math.max(...nonzero)).toBe(1);
   });
 });

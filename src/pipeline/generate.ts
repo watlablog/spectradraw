@@ -1,5 +1,5 @@
 import type { SpectraDrawSettings, StftConfig, WorkerStage } from '../types';
-import { getHopSize } from '../config';
+import { getHopSize, SPECTROGRAM_DATA_FLOOR_DB } from '../config';
 import { griffinLim } from '../dsp/griffinLim';
 import { magnitudeFromComplex, magnitudeToDb } from '../dsp/magnitude';
 import { stft } from '../dsp/stft';
@@ -20,7 +20,12 @@ export interface PipelineResult {
   binCount: number;
   times: Float64Array;
   frequencies: Float64Array;
-  durationSeconds: number;
+  timeStartSeconds: number;
+  timeEndSeconds: number;
+  minFrequencyHz: number;
+  maxFrequencyHz: number;
+  minAmplitudeDb: number;
+  maxAmplitudeDb: number;
 }
 
 export type PipelineProgressCallback = (progress: PipelineProgress) => void;
@@ -30,8 +35,14 @@ export function validateSettings(settings: SpectraDrawSettings): void {
   if (values.some((value) => !Number.isFinite(value))) {
     throw new Error('All settings must be finite numbers.');
   }
-  if (settings.durationSeconds <= 0 || settings.sampleRate <= 0) {
-    throw new Error('Duration and sample rate must be positive.');
+  if (settings.sampleRate <= 0) {
+    throw new Error('Sample rate must be positive.');
+  }
+  if (
+    settings.timeStartSeconds < 0
+    || settings.timeStartSeconds >= settings.timeEndSeconds
+  ) {
+    throw new Error('Time range must have a non-negative start before the end.');
   }
   if (
     !Number.isInteger(settings.frameSize)
@@ -49,6 +60,13 @@ export function validateSettings(settings: SpectraDrawSettings): void {
     || settings.maxFrequencyHz > settings.sampleRate / 2
   ) {
     throw new Error(`Frequency range must be between 0 and ${settings.sampleRate / 2} Hz.`);
+  }
+  if (
+    settings.minAmplitudeDb < SPECTROGRAM_DATA_FLOOR_DB
+    || settings.minAmplitudeDb >= settings.maxAmplitudeDb
+    || settings.maxAmplitudeDb > 0
+  ) {
+    throw new Error(`Amplitude mapping range must be between ${SPECTROGRAM_DATA_FLOOR_DB} and 0 dBFS.`);
   }
   if (!Number.isInteger(settings.griffinLimIterations) || settings.griffinLimIterations < 1) {
     throw new Error('Griffin-Lim iterations must be at least one.');
@@ -77,9 +95,9 @@ export function generateFromImage(
   onProgress?: PipelineProgressCallback,
 ): PipelineResult {
   validateSettings(settings);
-  const sampleCount = Math.round(settings.sampleRate * settings.durationSeconds);
+  const sampleCount = Math.round(settings.sampleRate * settings.timeEndSeconds);
   if (sampleCount < 1) {
-    throw new Error('Duration is too short to generate audio.');
+    throw new Error('The time range is too short to generate audio.');
   }
 
   const stftConfig: StftConfig = {
@@ -97,8 +115,12 @@ export function generateFromImage(
     processed.compositedMagnitude,
     sampleCount,
     stftConfig,
+    settings.timeStartSeconds,
+    settings.timeEndSeconds,
     settings.minFrequencyHz,
     settings.maxFrequencyHz,
+    settings.minAmplitudeDb,
+    settings.maxAmplitudeDb,
   );
 
   const waveform = griffinLim(
@@ -113,6 +135,14 @@ export function generateFromImage(
       onProgress?.({ stage: 'griffin-lim', iteration, totalIterations });
     },
   );
+
+  // The start control is a placement boundary, so keep the exported waveform
+  // exactly silent before it even though neighboring STFT windows overlap it.
+  const silentSampleCount = Math.min(
+    waveform.length,
+    Math.round(settings.sampleRate * settings.timeStartSeconds),
+  );
+  waveform.fill(0, 0, silentSampleCount);
 
   let peak = 0;
   for (const value of waveform) {
@@ -132,7 +162,7 @@ export function generateFromImage(
   const finalSpectrum = stft(samples, stftConfig);
   const finalMagnitudeDb = magnitudeToDb(
     magnitudeFromComplex(finalSpectrum),
-    settings.minDisplayDb,
+    SPECTROGRAM_DATA_FLOOR_DB,
   );
 
   return {
@@ -143,6 +173,11 @@ export function generateFromImage(
     binCount: finalSpectrum.binCount,
     times: finalSpectrum.times,
     frequencies: finalSpectrum.frequencies,
-    durationSeconds: settings.durationSeconds,
+    timeStartSeconds: settings.timeStartSeconds,
+    timeEndSeconds: settings.timeEndSeconds,
+    minFrequencyHz: settings.minFrequencyHz,
+    maxFrequencyHz: settings.maxFrequencyHz,
+    minAmplitudeDb: settings.minAmplitudeDb,
+    maxAmplitudeDb: settings.maxAmplitudeDb,
   };
 }

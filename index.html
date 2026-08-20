@@ -29,7 +29,7 @@
         <section class="panel" aria-labelledby="input-title">
           <div class="panel-heading">
             <div>
-              <h2 id="input-title">Image and settings</h2>
+              <h2 id="input-title">Image mapping</h2>
               <p>Choose a PNG, JPEG, or WebP image.</p>
             </div>
             <span id="input-state" class="state-pill">Waiting</span>
@@ -51,30 +51,69 @@
           <p id="image-metadata" class="image-metadata">No image selected</p>
 
           <form id="settings-form" novalidate>
-            <div class="field-grid">
-              <label class="field">
-                <span>Duration</span>
-                <span class="input-with-unit">
-                  <input id="duration-input" type="number" value="2.25" min="0.01" step="0.05" required />
-                  <span>s</span>
-                </span>
-              </label>
-              <label class="field">
-                <span>Minimum frequency</span>
-                <span class="input-with-unit">
-                  <input id="min-frequency-input" type="number" value="0" min="0" step="1" required />
-                  <span>Hz</span>
-                </span>
-              </label>
-              <label class="field">
-                <span>Maximum frequency</span>
-                <span class="input-with-unit">
-                  <input id="max-frequency-input" type="number" value="24000" min="1" max="24000" step="1" required />
-                  <span>Hz</span>
-                </span>
-              </label>
+            <p class="mapping-note">Mapping values are applied only when you click Calculate.</p>
+            <div class="axis-ranges">
+              <fieldset class="range-control">
+                <legend>Time mapping</legend>
+                <div class="range-values">
+                  <label>
+                    <span>Start</span>
+                    <span class="input-with-unit">
+                      <input id="time-start-input" type="number" value="0" min="0" step="0.05" required />
+                      <span>s</span>
+                    </span>
+                  </label>
+                  <label>
+                    <span>End</span>
+                    <span class="input-with-unit">
+                      <input id="time-end-input" type="number" value="2.25" min="0.05" step="0.05" required />
+                      <span>s</span>
+                    </span>
+                  </label>
+                </div>
+              </fieldset>
+
+              <fieldset class="range-control">
+                <legend>Frequency mapping</legend>
+                <div class="range-values">
+                  <label>
+                    <span>Minimum</span>
+                    <span class="input-with-unit">
+                      <input id="min-frequency-input" type="number" value="0" min="0" max="23999" step="1" required />
+                      <span>Hz</span>
+                    </span>
+                  </label>
+                  <label>
+                    <span>Maximum</span>
+                    <span class="input-with-unit">
+                      <input id="max-frequency-input" type="number" value="24000" min="1" max="24000" step="1" required />
+                      <span>Hz</span>
+                    </span>
+                  </label>
+                </div>
+              </fieldset>
+
+              <fieldset class="range-control">
+                <legend>Amplitude mapping</legend>
+                <div class="range-values">
+                  <label>
+                    <span>Minimum</span>
+                    <span class="input-with-unit">
+                      <input id="min-amplitude-input" type="number" value="-20" min="-80" max="-1" step="1" required />
+                      <span>dBFS</span>
+                    </span>
+                  </label>
+                  <label>
+                    <span>Maximum</span>
+                    <span class="input-with-unit">
+                      <input id="max-amplitude-input" type="number" value="0" min="-79" max="0" step="1" required />
+                      <span>dBFS</span>
+                    </span>
+                  </label>
+                </div>
+              </fieldset>
             </div>
-            <button id="calculate-button" class="button primary" type="submit" disabled>
+            <button id="calculate-button" class="button primary" type="button" disabled>
               Calculate
             </button>
           </form>
@@ -83,8 +122,8 @@
         <section class="panel result-panel" aria-labelledby="result-title">
           <div class="panel-heading">
             <div>
-              <h2 id="result-title">Final spectrogram</h2>
-              <p>Re-analyzed from the generated Float32 waveform.</p>
+              <h2 id="result-title">Spectrogram</h2>
+              <p>The surrounding sliders adjust the view only.</p>
             </div>
             <span id="result-state" class="state-pill">Ready</span>
           </div>
@@ -92,9 +131,41 @@
           <div id="result-frame" class="result-frame">
             <canvas
               id="spectrogram-canvas"
-              aria-label="Final generated spectrogram with time and frequency axes"
+              aria-label="Generated time waveform and spectrogram with shared time range"
             ></canvas>
             <p id="result-placeholder">Your generated spectrogram will appear here.</p>
+
+            <div class="plot-range plot-range-frequency" aria-label="Frequency axis range">
+              <div class="dual-range vertical">
+                <span class="range-track" aria-hidden="true"></span>
+                <span id="frequency-range-selection" class="range-selection" aria-hidden="true"></span>
+                <input id="min-frequency-range" type="range" min="0" max="24000" value="0" step="1" aria-label="Minimum frequency" />
+                <input id="max-frequency-range" type="range" min="0" max="24000" value="24000" step="1" aria-label="Maximum frequency" />
+              </div>
+            </div>
+
+            <div class="plot-range plot-range-amplitude" aria-label="Amplitude color range">
+              <div class="dual-range vertical">
+                <span class="range-track" aria-hidden="true"></span>
+                <span id="amplitude-range-selection" class="range-selection" aria-hidden="true"></span>
+                <input id="min-amplitude-range" type="range" min="-80" max="0" value="-80" step="1" aria-label="Minimum amplitude" />
+                <input id="max-amplitude-range" type="range" min="-80" max="0" value="0" step="1" aria-label="Maximum amplitude" />
+              </div>
+            </div>
+
+            <div class="plot-range plot-range-time" aria-label="Time axis range">
+              <div class="dual-range horizontal">
+                <span class="range-track" aria-hidden="true"></span>
+                <span id="time-range-selection" class="range-selection" aria-hidden="true"></span>
+                <input id="time-start-range" type="range" min="0" max="10" value="0" step="0.05" aria-label="Time range start" />
+                <input id="time-end-range" type="range" min="0" max="10" value="2.25" step="0.05" aria-label="Time range end" />
+              </div>
+            </div>
+
+            <div id="playback-cursor" class="playback-cursor-layer" hidden aria-hidden="true">
+              <span class="playback-cursor waveform-cursor"></span>
+              <span class="playback-cursor spectrogram-cursor"></span>
+            </div>
           </div>
           <p id="result-metadata" class="result-metadata"></p>
 
