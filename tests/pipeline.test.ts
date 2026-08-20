@@ -52,6 +52,7 @@ describe('complete image-to-sound pipeline', () => {
     expect(first.samples).toEqual(second.samples);
     expect(first.finalMagnitudeDb).toEqual(second.finalMagnitudeDb);
     expect(progress).toEqual([
+      'audio-preparation:',
       'image-processing:',
       'target-spectrum:',
       'griffin-lim:1',

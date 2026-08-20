@@ -195,6 +195,38 @@ p {
   border: 0;
 }
 
+.input-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.input-card {
+  min-width: 0;
+}
+
+.input-card-heading {
+  display: flex;
+  min-height: 25px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 5px;
+  font-size: 12px;
+}
+
+.clear-input {
+  padding: 2px 0;
+  border: 0;
+  color: #94b9f3;
+  background: transparent;
+  font-size: 11px;
+}
+
+.clear-input:hover:not(:disabled) {
+  color: #d8e8ff;
+}
+
 .drop-zone {
   display: grid;
   min-height: 284px;
@@ -209,6 +241,18 @@ p {
     repeating-linear-gradient(45deg, rgba(81, 126, 188, 0.08) 0 10px, transparent 10px 20px) border-box;
   cursor: pointer;
   transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.drop-zone.compact {
+  min-height: 0;
+  height: 132px;
+  padding: 9px;
+}
+
+.audio-drop-zone[data-selected='true'] {
+  border-style: solid;
+  border-color: rgba(105, 160, 255, 0.68);
+  background: rgba(28, 61, 105, 0.72);
 }
 
 .drop-zone:hover,
@@ -250,7 +294,12 @@ input:focus-visible {
   object-fit: contain;
 }
 
+.drop-zone.compact .image-preview {
+  max-height: 112px;
+}
+
 .image-metadata,
+.input-metadata,
 .result-metadata {
   min-height: 20px;
   margin-top: 9px;
@@ -260,10 +309,30 @@ input:focus-visible {
   line-height: 1.4;
 }
 
+.input-metadata {
+  display: -webkit-box;
+  min-height: 34px;
+  margin-top: 5px;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
 .axis-ranges {
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   margin-top: 16px;
+}
+
+#time-mapping-settings,
+#frequency-mapping-settings,
+#image-amplitude-settings {
+  grid-column: 1 / -1;
+}
+
+.range-control:disabled {
+  opacity: 0.48;
 }
 
 .mapping-note {
@@ -295,6 +364,10 @@ input:focus-visible {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+}
+
+.range-values.single-value {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .range-values label {
@@ -546,6 +619,72 @@ input:focus-visible {
   background: var(--accent);
 }
 
+.calculation-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.calculation-actions .button {
+  width: 100%;
+  margin-top: 0;
+}
+
+.button.danger {
+  width: 100%;
+  border-color: rgba(255, 116, 116, 0.6);
+  color: #ffd7d7;
+  background: rgba(116, 24, 35, 0.72);
+}
+
+.button.danger:hover:not(:disabled) {
+  border-color: #ff8e8e;
+  background: rgba(145, 31, 43, 0.88);
+}
+
+.warning-dialog {
+  width: min(460px, calc(100% - 32px));
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 16px;
+  color: var(--text);
+  background: #0b1c31;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+}
+
+.warning-dialog::backdrop {
+  background: rgba(1, 7, 16, 0.72);
+  backdrop-filter: blur(4px);
+}
+
+.warning-dialog form {
+  padding: 22px;
+}
+
+.warning-dialog h2 {
+  font-size: 19px;
+}
+
+.warning-dialog p {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.dialog-actions .button,
+.dialog-actions .button.primary {
+  width: auto;
+  margin-top: 0;
+}
+
 .button.primary:hover:not(:disabled) {
   border-color: var(--accent-dark);
   background: var(--accent-dark);
@@ -618,7 +757,7 @@ input:focus-visible {
   font-size: 12px;
 }
 
-@media (min-width: 861px) and (min-height: 700px) and (max-height: 900px) {
+@media (min-width: 861px) and (min-height: 600px) and (max-height: 900px) {
   .app-shell {
     width: min(1220px, calc(100% - 24px));
     padding: 10px 0 12px;
@@ -674,15 +813,28 @@ input:focus-visible {
     padding: 10px;
   }
 
+  .drop-zone.compact {
+    height: clamp(94px, 15vh, 116px);
+  }
+
+  .drop-zone.compact .image-preview {
+    max-height: 98px;
+  }
+
   .image-preview {
     max-height: 180px;
   }
 
   .image-metadata,
+  .input-metadata,
   .result-metadata {
     min-height: 16px;
     margin-top: 5px;
     font-size: 11px;
+  }
+
+  .input-metadata {
+    min-height: 28px;
   }
 
   .mapping-note {
@@ -720,6 +872,14 @@ input:focus-visible {
 
   .button.primary {
     margin-top: 8px;
+  }
+
+  .calculation-actions {
+    margin-top: 8px;
+  }
+
+  .calculation-actions .button {
+    margin-top: 0;
   }
 
   .result-frame {
@@ -779,6 +939,11 @@ input:focus-visible {
   .panel {
     padding: 14px;
     border-radius: 14px;
+  }
+
+  .input-grid,
+  .axis-ranges {
+    grid-template-columns: 1fr;
   }
 
   .panel-heading {

@@ -2,6 +2,8 @@ import type { SpectraDrawSettings } from './types';
 
 export const DEFAULT_SETTINGS: Readonly<SpectraDrawSettings> = {
   sampleRate: 48_000,
+  audioStartSeconds: 0,
+  imageAttenuationDb: 6,
   timeStartSeconds: 0,
   timeEndSeconds: 2.25,
   frameSize: 2_048,
@@ -24,6 +26,9 @@ export const DEFAULT_SETTINGS: Readonly<SpectraDrawSettings> = {
 // Final STFT values retain this wider range so the amplitude slider can redraw
 // the spectrogram without running Griffin-Lim again.
 export const SPECTROGRAM_DATA_FLOOR_DB = -80;
+export const LONG_PROCESSING_THRESHOLD_SECONDS = 10;
+export const PROCESSING_CHUNK_SECONDS = 8;
+export const MAX_SPECTROGRAM_COLUMNS = 2_048;
 
 export function getHopSize(settings: SpectraDrawSettings): number {
   return Math.round(settings.frameSize * (1 - settings.overlapPercent / 100));
