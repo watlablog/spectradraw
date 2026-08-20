@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { DEFAULT_SETTINGS, getHopSize } from '../src/config';
+import { DEFAULT_SETTINGS, getHopSize, SPECTROGRAM_DATA_FLOOR_DB } from '../src/config';
 import { magnitudeFromComplex, magnitudeToDb } from '../src/dsp/magnitude';
 import { stft } from '../src/dsp/stft';
-import { generateFromImage } from '../src/pipeline/generate';
+import { generateFromImage, validateSettings } from '../src/pipeline/generate';
 import type { SpectraDrawSettings } from '../src/types';
 
 function checkerboardImage(): ImageData {
@@ -26,7 +26,8 @@ function checkerboardImage(): ImageData {
 const settings: SpectraDrawSettings = {
   ...DEFAULT_SETTINGS,
   sampleRate: 8_000,
-  durationSeconds: 0.04,
+  timeStartSeconds: 0.01,
+  timeEndSeconds: 0.04,
   frameSize: 32,
   overlapPercent: 75,
   minFrequencyHz: 0,
@@ -35,6 +36,12 @@ const settings: SpectraDrawSettings = {
 };
 
 describe('complete image-to-sound pipeline', () => {
+  it('defaults amplitude mapping to -20 through 0 dBFS', () => {
+    expect(DEFAULT_SETTINGS.minAmplitudeDb).toBe(-20);
+    expect(DEFAULT_SETTINGS.maxAmplitudeDb).toBe(0);
+    expect(SPECTROGRAM_DATA_FLOOR_DB).toBe(-80);
+  });
+
   it('is deterministic for one implementation and reports every stage', () => {
     const progress: string[] = [];
     const first = generateFromImage(checkerboardImage(), settings, (event) => {
@@ -51,7 +58,11 @@ describe('complete image-to-sound pipeline', () => {
       'griffin-lim:2',
       'final-stft:',
     ]);
-    expect(first.samples.length).toBe(Math.round(settings.sampleRate * settings.durationSeconds));
+    expect(first.samples.length).toBe(Math.round(settings.sampleRate * settings.timeEndSeconds));
+    expect(Array.from(first.samples.subarray(
+      0,
+      Math.round(settings.sampleRate * settings.timeStartSeconds),
+    ))).toEqual(new Array(Math.round(settings.sampleRate * settings.timeStartSeconds)).fill(0));
     expect(Array.from(first.samples).every(Number.isFinite)).toBe(true);
   });
 
@@ -65,11 +76,28 @@ describe('complete image-to-sound pipeline', () => {
     });
     const expectedDb = magnitudeToDb(
       magnitudeFromComplex(finalSpectrum),
-      settings.minDisplayDb,
+      SPECTROGRAM_DATA_FLOOR_DB,
     );
 
     expect(result.frameCount).toBe(finalSpectrum.frameCount);
     expect(result.binCount).toBe(finalSpectrum.binCount);
     expect(result.finalMagnitudeDb).toEqual(expectedDb);
+  });
+
+  it('rejects reversed time and amplitude ranges', () => {
+    expect(() => validateSettings({
+      ...settings,
+      timeStartSeconds: 0.04,
+      timeEndSeconds: 0.04,
+    })).toThrow('Time range');
+    expect(() => validateSettings({
+      ...settings,
+      minAmplitudeDb: 0,
+      maxAmplitudeDb: 0,
+    })).toThrow('Amplitude mapping range');
+    expect(() => validateSettings({
+      ...settings,
+      minAmplitudeDb: -81,
+    })).toThrow('Amplitude mapping range');
   });
 });

@@ -10,7 +10,8 @@ export interface DecodedImage {
 
 export interface SpectraDrawSettings {
   sampleRate: number;
-  durationSeconds: number;
+  timeStartSeconds: number;
+  timeEndSeconds: number;
   frameSize: number;
   overlapPercent: number;
   minFrequencyHz: number;
@@ -24,7 +25,8 @@ export interface SpectraDrawSettings {
   phaseSeed: number;
   griffinLimIterations: number;
   finalPeakDbfs: number;
-  minDisplayDb: number;
+  minAmplitudeDb: number;
+  maxAmplitudeDb: number;
 }
 
 export interface Matrix2D {
@@ -86,7 +88,12 @@ export interface GenerateResult {
   binCount: number;
   times: Float64Array;
   frequencies: Float64Array;
-  durationSeconds: number;
+  timeStartSeconds: number;
+  timeEndSeconds: number;
+  minFrequencyHz: number;
+  maxFrequencyHz: number;
+  minAmplitudeDb: number;
+  maxAmplitudeDb: number;
 }
 
 export interface GenerateError {

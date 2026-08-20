@@ -260,25 +260,56 @@ input:focus-visible {
   line-height: 1.4;
 }
 
-.field-grid {
+.axis-ranges {
   display: grid;
-  gap: 11px;
+  gap: 10px;
   margin-top: 16px;
 }
 
-.field {
+.mapping-note {
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.range-control {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(138px, 0.72fr);
-  align-items: center;
-  gap: 12px;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 11px 12px 8px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(8, 24, 42, 0.46);
+}
+
+.range-control legend {
+  padding: 0 5px;
   color: var(--muted);
   font-size: 13px;
   font-weight: 600;
 }
 
+.range-values {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.range-values label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
 .input-with-unit {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 34px;
+  grid-template-columns: minmax(0, 1fr) 42px;
   align-items: center;
   overflow: hidden;
   border: 1px solid var(--border);
@@ -301,6 +332,194 @@ input:focus-visible {
   color: var(--muted);
   font-size: 12px;
   text-align: center;
+}
+
+.dual-range {
+  position: relative;
+  height: 28px;
+  margin: 0 8px;
+}
+
+.plot-range {
+  position: absolute;
+  z-index: 3;
+}
+
+.plot-range-time {
+  right: var(--plot-right);
+  bottom: 7px;
+  left: var(--plot-left);
+  height: 28px;
+}
+
+.plot-range-frequency,
+.plot-range-amplitude {
+  top: var(--plot-top);
+  bottom: var(--plot-bottom);
+  width: 28px;
+}
+
+.plot-range-frequency {
+  left: 5px;
+}
+
+.plot-range-amplitude {
+  right: 5px;
+}
+
+.plot-range > .dual-range {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+.playback-cursor-layer {
+  position: absolute;
+  z-index: 4;
+  inset: 0;
+  pointer-events: none;
+}
+
+.playback-cursor {
+  position: absolute;
+  left: var(--playback-cursor-left, var(--plot-left));
+  width: 2px;
+  transform: translateX(-1px);
+  background: #ffd84d;
+  box-shadow: 0 0 5px rgba(255, 216, 77, 0.85);
+}
+
+.waveform-cursor {
+  top: var(--waveform-top, 18px);
+  height: var(--waveform-height, 64px);
+}
+
+.spectrogram-cursor {
+  top: var(--plot-top);
+  bottom: var(--plot-bottom);
+}
+
+.range-track,
+.range-selection {
+  position: absolute;
+  top: 13px;
+  height: 3px;
+  border-radius: 999px;
+}
+
+.range-track {
+  right: 0;
+  left: 0;
+  background: rgba(141, 189, 255, 0.2);
+}
+
+.range-selection {
+  background: linear-gradient(90deg, #4a84ff, #83afff);
+  box-shadow: 0 0 10px rgba(74, 132, 255, 0.42);
+}
+
+.dual-range.vertical .range-track,
+.dual-range.vertical .range-selection {
+  top: auto;
+  left: 13px;
+  width: 3px;
+  border-radius: 999px;
+}
+
+.dual-range.vertical .range-track {
+  top: 0;
+  bottom: 0;
+  height: auto;
+}
+
+.dual-range.vertical .range-selection {
+  background: linear-gradient(0deg, #4a84ff, #83afff);
+}
+
+.dual-range input[type='range'] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  appearance: none;
+  border: 0;
+  outline: none;
+  background: transparent;
+  pointer-events: none;
+}
+
+.dual-range.vertical input[type='range'] {
+  width: 28px;
+  height: 100%;
+  writing-mode: vertical-lr;
+  direction: rtl;
+}
+
+.dual-range input[type='range']::-webkit-slider-runnable-track {
+  height: 3px;
+  background: transparent;
+}
+
+.dual-range.vertical input[type='range']::-webkit-slider-runnable-track {
+  width: 3px;
+  height: 100%;
+}
+
+.dual-range input[type='range']::-webkit-slider-thumb {
+  width: 17px;
+  height: 17px;
+  margin-top: -7px;
+  appearance: none;
+  border: 2px solid #dbe8ff;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 2px 8px rgba(0, 5, 16, 0.55);
+  cursor: grab;
+  pointer-events: auto;
+}
+
+.dual-range.vertical input[type='range']::-webkit-slider-thumb {
+  margin-top: 0;
+  margin-left: -7px;
+}
+
+.dual-range input[type='range']::-moz-range-track {
+  height: 3px;
+  background: transparent;
+}
+
+.dual-range.vertical input[type='range']::-moz-range-track {
+  width: 3px;
+  height: 100%;
+}
+
+.dual-range input[type='range']::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #dbe8ff;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 2px 8px rgba(0, 5, 16, 0.55);
+  cursor: grab;
+  pointer-events: auto;
+}
+
+.dual-range input[type='range']:focus-visible::-webkit-slider-thumb {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+
+.dual-range input[type='range']:focus-visible::-moz-range-thumb {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+
+.dual-range input[type='range']:disabled::-webkit-slider-thumb,
+.dual-range input[type='range']:disabled::-moz-range-thumb {
+  cursor: not-allowed;
+  opacity: 0.46;
 }
 
 .button {
@@ -337,6 +556,10 @@ input:focus-visible {
 }
 
 .result-frame {
+  --plot-left: 104px;
+  --plot-top: 24px;
+  --plot-right: 132px;
+  --plot-bottom: 94px;
   position: relative;
   display: grid;
   min-height: 410px;
@@ -395,6 +618,135 @@ input:focus-visible {
   font-size: 12px;
 }
 
+@media (min-width: 861px) and (min-height: 700px) and (max-height: 900px) {
+  .app-shell {
+    width: min(1220px, calc(100% - 24px));
+    padding: 10px 0 12px;
+  }
+
+  .app-header {
+    margin-bottom: 10px;
+  }
+
+  .app-header h1 {
+    font-size: 36px;
+  }
+
+  .app-header p,
+  .panel-heading p {
+    margin-top: 3px;
+    font-size: 11px;
+  }
+
+  .github-link {
+    min-height: 34px;
+    padding: 0 12px;
+  }
+
+  .workspace {
+    height: calc(100vh - 138px);
+    gap: 14px;
+  }
+
+  .panel {
+    min-height: 0;
+    padding: 12px;
+    border-radius: 14px;
+  }
+
+  .panel-heading {
+    margin-bottom: 8px;
+  }
+
+  .panel-heading h2 {
+    font-size: 16px;
+  }
+
+  .state-pill {
+    min-width: 68px;
+    padding: 5px 8px;
+    font-size: 11px;
+  }
+
+  .drop-zone {
+    min-height: 0;
+    height: clamp(165px, 26vh, 205px);
+    padding: 10px;
+  }
+
+  .image-preview {
+    max-height: 180px;
+  }
+
+  .image-metadata,
+  .result-metadata {
+    min-height: 16px;
+    margin-top: 5px;
+    font-size: 11px;
+  }
+
+  .mapping-note {
+    margin-top: 6px;
+    font-size: 11px;
+  }
+
+  .axis-ranges {
+    gap: 5px;
+    margin-top: 8px;
+  }
+
+  .range-control {
+    gap: 4px;
+    padding: 5px 8px 4px;
+    border-radius: 10px;
+  }
+
+  .range-control legend {
+    font-size: 11px;
+  }
+
+  .range-values label {
+    gap: 5px;
+    font-size: 10px;
+  }
+
+  .input-with-unit input {
+    height: 32px;
+  }
+
+  .button {
+    min-height: 36px;
+  }
+
+  .button.primary {
+    margin-top: 8px;
+  }
+
+  .result-frame {
+    min-height: 0;
+  }
+
+  #audio-player {
+    min-height: 38px;
+    margin-top: 8px;
+  }
+
+  .result-actions {
+    margin-top: 6px;
+  }
+
+  .message {
+    min-height: 18px;
+    margin-top: 5px;
+    font-size: 12px;
+  }
+
+  .privacy-note {
+    margin-top: 1px;
+    font-size: 10px;
+  }
+}
+
 @media (max-width: 860px) {
   .workspace {
     grid-template-columns: 1fr;
@@ -442,9 +794,8 @@ input:focus-visible {
     min-height: 230px;
   }
 
-  .field {
+  .range-values {
     grid-template-columns: 1fr;
-    gap: 6px;
   }
 
   .result-frame {
