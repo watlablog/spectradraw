@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="SpectraDraw turns PNG, JPEG, and WebP images into sound entirely in your browser."
+    />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <title>SpectraDraw</title>
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="app-header">
+        <div>
+          <h1>Spectra<span>Draw</span></h1>
+          <p>Draw pictures with sound.</p>
+        </div>
+        <a
+          class="github-link"
+          href="https://github.com/watlablog/spectradraw"
+          target="_blank"
+          rel="noopener noreferrer"
+        >GitHub</a>
+      </header>
+
+      <section class="workspace">
+        <section class="panel" aria-labelledby="input-title">
+          <div class="panel-heading">
+            <div>
+              <h2 id="input-title">Image and settings</h2>
+              <p>Choose a PNG, JPEG, or WebP image.</p>
+            </div>
+            <span id="input-state" class="state-pill">Waiting</span>
+          </div>
+
+          <input
+            id="image-input"
+            class="visually-hidden"
+            type="file"
+            accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
+          />
+          <label id="drop-zone" class="drop-zone" for="image-input" tabindex="0">
+            <canvas id="image-preview" class="image-preview" hidden></canvas>
+            <span id="drop-prompt" class="drop-prompt">
+              <strong>Drop an image here</strong>
+              <span>or click to choose a file</span>
+            </span>
+          </label>
+          <p id="image-metadata" class="image-metadata">No image selected</p>
+
+          <form id="settings-form" novalidate>
+            <div class="field-grid">
+              <label class="field">
+                <span>Duration</span>
+                <span class="input-with-unit">
+                  <input id="duration-input" type="number" value="2.25" min="0.01" step="0.05" required />
+                  <span>s</span>
+                </span>
+              </label>
+              <label class="field">
+                <span>Minimum frequency</span>
+                <span class="input-with-unit">
+                  <input id="min-frequency-input" type="number" value="0" min="0" step="1" required />
+                  <span>Hz</span>
+                </span>
+              </label>
+              <label class="field">
+                <span>Maximum frequency</span>
+                <span class="input-with-unit">
+                  <input id="max-frequency-input" type="number" value="24000" min="1" max="24000" step="1" required />
+                  <span>Hz</span>
+                </span>
+              </label>
+            </div>
+            <button id="calculate-button" class="button primary" type="submit" disabled>
+              Calculate
+            </button>
+          </form>
+        </section>
+
+        <section class="panel result-panel" aria-labelledby="result-title">
+          <div class="panel-heading">
+            <div>
+              <h2 id="result-title">Final spectrogram</h2>
+              <p>Re-analyzed from the generated Float32 waveform.</p>
+            </div>
+            <span id="result-state" class="state-pill">Ready</span>
+          </div>
+
+          <div id="result-frame" class="result-frame">
+            <canvas
+              id="spectrogram-canvas"
+              aria-label="Final generated spectrogram with time and frequency axes"
+            ></canvas>
+            <p id="result-placeholder">Your generated spectrogram will appear here.</p>
+          </div>
+          <p id="result-metadata" class="result-metadata"></p>
+
+          <audio id="audio-player" controls preload="metadata"></audio>
+          <div class="result-actions">
+            <button id="download-wav-button" class="button" type="button" disabled>
+              Download WAV
+            </button>
+          </div>
+        </section>
+      </section>
+
+      <p id="message" class="message" role="status" aria-live="polite"></p>
+      <p class="privacy-note">Images and generated audio are processed locally in your browser.</p>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
