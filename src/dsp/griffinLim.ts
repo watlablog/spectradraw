@@ -8,6 +8,7 @@ export interface GriffinLimOptions {
   iterations: number;
   phaseSeed: number;
   stftConfig: StftConfig;
+  initialPhase?: Float64Array;
 }
 
 export type GriffinLimProgress = (iteration: number, totalIterations: number) => void;
@@ -26,10 +27,17 @@ export function griffinLim(
     throw new Error('Target magnitude dimensions are invalid.');
   }
 
-  const random = createSeededRandom(options.phaseSeed);
   const phase = new Float64Array(valueCount);
-  for (let index = 0; index < valueCount; index += 1) {
-    phase[index] = random.next() * 2 * Math.PI - Math.PI;
+  if (options.initialPhase !== undefined) {
+    if (options.initialPhase.length !== valueCount) {
+      throw new Error('Initial phase dimensions are invalid.');
+    }
+    phase.set(options.initialPhase);
+  } else {
+    const random = createSeededRandom(options.phaseSeed);
+    for (let index = 0; index < valueCount; index += 1) {
+      phase[index] = random.next() * 2 * Math.PI - Math.PI;
+    }
   }
 
   const real = new Float64Array(valueCount);

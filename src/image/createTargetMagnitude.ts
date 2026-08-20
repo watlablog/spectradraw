@@ -14,6 +14,35 @@ export function createTargetMagnitude(
   minimumAmplitudeDb: number,
   maximumAmplitudeDb: number,
 ): TargetMagnitude {
+  const mapped = createMappedImageMagnitude(
+    source,
+    sampleCount,
+    stftConfig,
+    timeStartSeconds,
+    timeEndSeconds,
+    minimumFrequencyHz,
+    maximumFrequencyHz,
+  );
+  for (let index = 0; index < mapped.values.length; index += 1) {
+    const value = mapped.values[index] ?? 0;
+    if (value > 0) {
+      const amplitudeDb = minimumAmplitudeDb
+        + value * (maximumAmplitudeDb - minimumAmplitudeDb);
+      mapped.values[index] = 10 ** (amplitudeDb / 20);
+    }
+  }
+  return mapped;
+}
+
+export function createMappedImageMagnitude(
+  source: Matrix2D,
+  sampleCount: number,
+  stftConfig: StftConfig,
+  timeStartSeconds: number,
+  timeEndSeconds: number,
+  minimumFrequencyHz: number,
+  maximumFrequencyHz: number,
+): TargetMagnitude {
   const layout = createStftLayout(sampleCount, stftConfig);
   const selectedFrames: number[] = [];
   for (let frame = 0; frame < layout.frameCount; frame += 1) {
@@ -71,14 +100,5 @@ export function createTargetMagnitude(
   if (!(normalizeMagnitude(values) > 0)) {
     throw new Error('This image does not contain any content that can be converted to sound.');
   }
-  for (let index = 0; index < values.length; index += 1) {
-    const value = values[index] ?? 0;
-    if (value > 0) {
-      const amplitudeDb = minimumAmplitudeDb
-        + value * (maximumAmplitudeDb - minimumAmplitudeDb);
-      values[index] = 10 ** (amplitudeDb / 20);
-    }
-  }
-
   return { frameCount: layout.frameCount, binCount: layout.binCount, values };
 }

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="SpectraDraw turns PNG, JPEG, and WebP images into sound entirely in your browser."
+      content="SpectraDraw turns images into sound and embeds spectrogram art in WAV or MP3 audio, entirely in your browser."
     />
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <title>SpectraDraw</title>
@@ -26,34 +26,75 @@
       </header>
 
       <section class="workspace">
-        <section class="panel" aria-labelledby="input-title">
+        <section class="panel input-panel" aria-labelledby="input-title">
           <div class="panel-heading">
             <div>
-              <h2 id="input-title">Image mapping</h2>
-              <p>Choose a PNG, JPEG, or WebP image.</p>
+              <h2 id="input-title">Inputs &amp; mapping</h2>
+              <p>Choose an image, an audio file, or both.</p>
             </div>
-            <span id="input-state" class="state-pill">Waiting</span>
+            <span id="input-state" class="state-pill">No input</span>
           </div>
 
-          <input
-            id="image-input"
-            class="visually-hidden"
-            type="file"
-            accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
-          />
-          <label id="drop-zone" class="drop-zone" for="image-input" tabindex="0">
-            <canvas id="image-preview" class="image-preview" hidden></canvas>
-            <span id="drop-prompt" class="drop-prompt">
-              <strong>Drop an image here</strong>
-              <span>or click to choose a file</span>
-            </span>
-          </label>
-          <p id="image-metadata" class="image-metadata">No image selected</p>
+          <div class="input-grid">
+            <section class="input-card" aria-labelledby="image-input-title">
+              <div class="input-card-heading">
+                <strong id="image-input-title">Image</strong>
+                <button id="clear-image-button" class="clear-input" type="button" hidden>Clear</button>
+              </div>
+              <input
+                id="image-input"
+                class="visually-hidden"
+                type="file"
+                accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
+              />
+              <label id="drop-zone" class="drop-zone compact" for="image-input" tabindex="0">
+                <canvas id="image-preview" class="image-preview" hidden></canvas>
+                <span id="drop-prompt" class="drop-prompt">
+                  <strong>Drop an image</strong>
+                  <span>PNG, JPEG, or WebP</span>
+                </span>
+              </label>
+              <p id="image-metadata" class="input-metadata">No image selected</p>
+            </section>
+
+            <section class="input-card" aria-labelledby="audio-input-title">
+              <div class="input-card-heading">
+                <strong id="audio-input-title">Audio</strong>
+                <button id="clear-audio-button" class="clear-input" type="button" hidden>Clear</button>
+              </div>
+              <input
+                id="audio-input"
+                class="visually-hidden"
+                type="file"
+                accept="audio/wav,audio/mpeg,.wav,.mp3"
+              />
+              <label id="audio-drop-zone" class="drop-zone compact audio-drop-zone" for="audio-input" tabindex="0">
+                <span id="audio-drop-prompt" class="drop-prompt">
+                  <strong>Drop audio</strong>
+                  <span>WAV or MP3</span>
+                </span>
+              </label>
+              <p id="audio-metadata" class="input-metadata">No audio selected</p>
+            </section>
+          </div>
 
           <form id="settings-form" novalidate>
             <p class="mapping-note">Mapping values are applied only when you click Calculate.</p>
             <div class="axis-ranges">
-              <fieldset class="range-control">
+              <fieldset id="audio-placement-settings" class="range-control" disabled>
+                <legend>Audio placement</legend>
+                <div class="range-values single-value">
+                  <label>
+                    <span>Start</span>
+                    <span class="input-with-unit">
+                      <input id="audio-start-input" type="number" value="0" min="0" step="0.05" required />
+                      <span>s</span>
+                    </span>
+                  </label>
+                </div>
+              </fieldset>
+
+              <fieldset id="time-mapping-settings" class="range-control" disabled>
                 <legend>Time mapping</legend>
                 <div class="range-values">
                   <label>
@@ -73,7 +114,7 @@
                 </div>
               </fieldset>
 
-              <fieldset class="range-control">
+              <fieldset id="frequency-mapping-settings" class="range-control" disabled>
                 <legend>Frequency mapping</legend>
                 <div class="range-values">
                   <label>
@@ -93,7 +134,7 @@
                 </div>
               </fieldset>
 
-              <fieldset class="range-control">
+              <fieldset id="image-amplitude-settings" class="range-control" disabled>
                 <legend>Amplitude mapping</legend>
                 <div class="range-values">
                   <label>
@@ -112,10 +153,24 @@
                   </label>
                 </div>
               </fieldset>
+
+              <fieldset id="composite-amplitude-settings" class="range-control" hidden disabled>
+                <legend>Image level</legend>
+                <div class="range-values single-value">
+                  <label>
+                    <span>Attenuation</span>
+                    <span class="input-with-unit">
+                      <input id="image-attenuation-input" type="number" value="6" min="0" max="80" step="1" required />
+                      <span>dB</span>
+                    </span>
+                  </label>
+                </div>
+              </fieldset>
             </div>
-            <button id="calculate-button" class="button primary" type="button" disabled>
-              Calculate
-            </button>
+            <div class="calculation-actions">
+              <button id="calculate-button" class="button primary" type="button" disabled>Calculate</button>
+              <button id="cancel-button" class="button danger" type="button" hidden>Cancel</button>
+            </div>
           </form>
         </section>
 
@@ -178,8 +233,19 @@
         </section>
       </section>
 
+      <dialog id="long-processing-dialog" class="warning-dialog">
+        <form method="dialog">
+          <h2>Long calculation</h2>
+          <p id="long-processing-message"></p>
+          <div class="dialog-actions">
+            <button class="button" value="cancel">Cancel</button>
+            <button class="button primary" value="continue">Continue</button>
+          </div>
+        </form>
+      </dialog>
+
       <p id="message" class="message" role="status" aria-live="polite"></p>
-      <p class="privacy-note">Images and generated audio are processed locally in your browser.</p>
+      <p class="privacy-note">Images, source audio, and generated audio are processed locally in your browser.</p>
     </main>
     <script type="module" src="/src/main.ts"></script>
   </body>

@@ -48,3 +48,22 @@ export function magnitudeToDb(
   }
   return result;
 }
+
+export function magnitudeToDbWithReference(
+  magnitude: Float64Array,
+  reference: number,
+  minimumDb: number,
+): Float32Array {
+  if (!Number.isFinite(reference) || reference <= 0) {
+    const silent = new Float32Array(magnitude.length);
+    silent.fill(minimumDb);
+    return silent;
+  }
+  const minimumMagnitude = reference * 10 ** (minimumDb / 20);
+  const result = new Float32Array(magnitude.length);
+  for (let index = 0; index < magnitude.length; index += 1) {
+    const clipped = Math.max(magnitude[index] ?? 0, minimumMagnitude);
+    result[index] = Math.min(0, 20 * Math.log10(clipped / reference));
+  }
+  return result;
+}

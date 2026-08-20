@@ -1,4 +1,6 @@
 export type SupportedImageFormat = 'png' | 'jpeg' | 'webp';
+export type SupportedAudioFormat = 'wav' | 'mp3';
+export type InputMode = 'image-only' | 'audio-only' | 'composite';
 
 export interface DecodedImage {
   fileName: string;
@@ -8,8 +10,24 @@ export interface DecodedImage {
   imageData: ImageData;
 }
 
+export interface DecodedAudio {
+  fileName: string;
+  format: SupportedAudioFormat;
+  sampleRate: number;
+  channelCount: number;
+  durationSeconds: number;
+  samples: Float32Array;
+}
+
+export interface AudioPayload {
+  sampleRate: number;
+  samples: Float32Array;
+}
+
 export interface SpectraDrawSettings {
   sampleRate: number;
+  audioStartSeconds: number;
+  imageAttenuationDb: number;
   timeStartSeconds: number;
   timeEndSeconds: number;
   frameSize: number;
@@ -58,6 +76,8 @@ export interface TargetMagnitude {
 }
 
 export type WorkerStage =
+  | 'audio-preparation'
+  | 'source-analysis'
   | 'image-processing'
   | 'target-spectrum'
   | 'griffin-lim'
@@ -66,9 +86,22 @@ export type WorkerStage =
 export interface GenerateRequest {
   type: 'generate';
   requestId: number;
-  image: ImageData;
+  image?: ImageData;
+  audio?: AudioPayload;
   settings: SpectraDrawSettings;
+  maximumDisplayColumns: number;
 }
+
+export interface AnalyzeViewRequest {
+  type: 'analyze-view';
+  requestId: number;
+  viewRequestId: number;
+  minimumTimeSeconds: number;
+  maximumTimeSeconds: number;
+  maximumDisplayColumns: number;
+}
+
+export type WorkerRequest = GenerateRequest | AnalyzeViewRequest;
 
 export interface GenerateProgress {
   type: 'progress';
@@ -76,11 +109,14 @@ export interface GenerateProgress {
   stage: WorkerStage;
   iteration?: number;
   totalIterations?: number;
+  chunkIndex?: number;
+  chunkCount?: number;
 }
 
 export interface GenerateResult {
   type: 'result';
   requestId: number;
+  mode: InputMode;
   sampleRate: number;
   samples: Float32Array;
   finalMagnitudeDb: Float32Array;
@@ -96,10 +132,21 @@ export interface GenerateResult {
   maxAmplitudeDb: number;
 }
 
+export interface ViewResult {
+  type: 'view-result';
+  requestId: number;
+  viewRequestId: number;
+  finalMagnitudeDb: Float32Array;
+  frameCount: number;
+  binCount: number;
+  times: Float64Array;
+  frequencies: Float64Array;
+}
+
 export interface GenerateError {
   type: 'error';
   requestId: number;
   message: string;
 }
 
-export type WorkerResponse = GenerateProgress | GenerateResult | GenerateError;
+export type WorkerResponse = GenerateProgress | GenerateResult | ViewResult | GenerateError;
